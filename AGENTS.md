@@ -11,7 +11,7 @@ code or component-specific standards.
 ## Quick start for agents
 
 1. Read .agent/rules/ecosystem-map.md -- all components, paths, purposes
-2. Read .agent/rules/arch-principles.md -- design philosophy
+2. Read docs/architecture/arch-principles.md -- design philosophy
 3. For cross-repo navigation tasks, read .agent/rules/agent-guide.md
 4. All repos are cloned to ./repos/ via setup.sh (run it if repos/ is empty)
 

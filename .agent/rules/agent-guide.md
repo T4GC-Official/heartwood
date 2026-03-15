@@ -41,8 +41,9 @@ Instructions for agents navigating the Good Shepherd ecosystem.
 
       docs/
         architecture/        - post-implementation rationale
-        design/              - pre-implementation design docs
-        misc/                - tasks, features, runbooks, other
+        plan/                - pre-implementation design docs, tradeoffs, alternatives
+        ops/                 - runbooks, deployment, operating procedures
+        misc/                - tasks, features, notes, other
 
       <source dirs>
 
