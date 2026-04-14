@@ -76,14 +76,34 @@ The PWA always uses relative paths — only the proxy layer changes between envi
 
 ---
 
+## Teardown
+
+When the POC functionality has been graduated to good-shepherd (or the POC is
+being retired), tear down all AWS resources with:
+
+```bash
+# 1. Dry run first — verify it only lists resources named after your APP_NAME
+./deploy/teardown.sh --dry-run
+
+# 2. Once confirmed, delete for real
+./deploy/teardown.sh
+```
+
+Teardown removes: Lambda function, ECR repository (this POC's images only),
+IAM role + policy, CloudWatch log group. It does **not** touch the Lambda budget
+alert (account-level) or any other POC's resources.
+
+---
+
 ## Files
 
 | File | Edit? | Purpose |
 |---|---|---|
-| `config.sh` | **Yes** | All variables |
+| `config.sh` | **Yes** | All variables — the only file you change |
 | `setup.sh` | No | One-time: ECR, IAM role, budget alert |
 | `build.sh` | No | Docker build + smoke test |
 | `push.sh` | No | ECR push + Lambda create/update + Function URL |
 | `deploy.sh` | No | Orchestrator: build → test → push |
+| `teardown.sh` | No | Remove all POC resources when done |
 | `lambda-policy.json` | Maybe | CloudWatch logs; add S3/Textract if needed |
 | `trust-policy.json` | No | Standard Lambda assume-role |
