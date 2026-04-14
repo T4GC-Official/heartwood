@@ -59,37 +59,77 @@ echo "  set — max simultaneous executions: ${RESERVED_CONCURRENCY}"
 # ── Lambda Function URL (public HTTPS endpoint, no API Gateway) ────────────────
 CORS_EXPOSE="${CORS_EXPOSE_HEADERS:-Content-Disposition}"
 
+ensure_lambda_permission() {
+  local statement_id="$1"
+  shift
+
+  local policy
+  policy="$(aws lambda get-policy \
+    --function-name "$LAMBDA_FUNCTION" \
+    --region "$AWS_REGION" \
+    --query 'Policy' --output text 2>/dev/null || true)"
+
+  if printf '%s' "$policy" | grep -q "\"Sid\":\"${statement_id}\""; then
+    echo "  permission ${statement_id} already exists"
+    return 0
+  fi
+
+  aws lambda add-permission \
+    --function-name "$LAMBDA_FUNCTION" \
+    --statement-id "$statement_id" \
+    --region "$AWS_REGION" \
+    "$@" \
+    --output text >/dev/null
+  echo "  added permission ${statement_id}"
+}
+
 echo "=== Function URL ==="
 if aws lambda get-function-url-config \
     --function-name "$LAMBDA_FUNCTION" \
     --region "$AWS_REGION" &>/dev/null; then
-  echo "  already exists"
+  echo "  updating existing config"
+  aws lambda update-function-url-config \
+    --function-name "$LAMBDA_FUNCTION" \
+    --auth-type NONE \
+    --cors "{
+      \"AllowOrigins\": [\"*\"],
+      \"AllowMethods\": [\"GET\",\"POST\",\"PUT\",\"DELETE\"],
+      \"AllowHeaders\": [\"content-type\"],
+      \"ExposeHeaders\": [\"${CORS_EXPOSE}\"],
+      \"MaxAge\": 3600
+    }" \
+    --region "$AWS_REGION" \
+    --output text >/dev/null
 else
   FUNCTION_URL=$(aws lambda create-function-url-config \
     --function-name "$LAMBDA_FUNCTION" \
     --auth-type NONE \
     --cors "{
       \"AllowOrigins\": [\"*\"],
-      \"AllowMethods\": [\"GET\",\"POST\",\"PUT\",\"DELETE\",\"OPTIONS\"],
+      \"AllowMethods\": [\"GET\",\"POST\",\"PUT\",\"DELETE\"],
       \"AllowHeaders\": [\"content-type\"],
       \"ExposeHeaders\": [\"${CORS_EXPOSE}\"],
       \"MaxAge\": 3600
     }" \
     --region "$AWS_REGION" \
     --query 'FunctionUrl' --output text)
-
-  # Allow unauthenticated public invocation
-  aws lambda add-permission \
-    --function-name "$LAMBDA_FUNCTION" \
-    --statement-id "FunctionURLAllowPublicAccess" \
-    --action "lambda:InvokeFunctionUrl" \
-    --principal "*" \
-    --function-url-auth-type NONE \
-    --region "$AWS_REGION" \
-    --output text >/dev/null
-
   echo "  created: ${FUNCTION_URL}"
 fi
+
+# Allow unauthenticated public invocation via the Function URL.
+# Both permissions are required for public Function URLs with AuthType=NONE
+# (AWS requirement as of October 2025).
+ensure_lambda_permission \
+  "FunctionURLAllowPublicAccess" \
+  --action "lambda:InvokeFunctionUrl" \
+  --principal "*" \
+  --function-url-auth-type NONE
+
+ensure_lambda_permission \
+  "FunctionURLInvokeAllowPublicAccess" \
+  --action "lambda:InvokeFunction" \
+  --principal "*" \
+  --invoked-via-function-url
 
 # Print the URL for netlify.toml
 FUNCTION_URL=$(aws lambda get-function-url-config \
