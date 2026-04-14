@@ -19,14 +19,14 @@ So if your poc requires a server, use these steps.
 First let's discuss the division of labor. What _should_ go into the good-shepherd server, even for a poc:     
 
 1. If your API needs any kind of specia auth, eg, if it calls aws services, it must go behind a api gateway. We expect this to be a minority of services. 
-2. If the API is pure "logic", then it doesn't really need auth. It just needs a rate limit. 
+2. If the API is pure "logic", then it doesn't really need auth. It just needs a [rate limit](#rate_limiting_the_poc_server). 
 3. If it's a combination, have the frontend take auth credentials, auth with cognito/auth providers, send those credentials to the gateway protected good-shepherd server that calls aws, and call the poc server for everything else. 
 
 In other words, only the gateway protected good-shepherd server should speak with aws to avoid "denial of wallet". 
 
 Now we can discuss the hosting of pure logic api servers. These are servers that say, perform a dictionary lookup, or fetch map tiles. 
 
-1. Copy and modify the templatized setup scripts in `good-shepherd/server/deploy` into your server's directory. You will need to modify these to avoid overwriting the good-shepherd server. 
+1. Copy and modify the templatized setup scripts in `heartwood/server/deploy` into your server's directory (see [deploy/README](../server/deploy/README.md)).
 2. Regarding dev vs prod
 
 In dev, the Vite proxy handles both (assuming your endpoints are `/agent` in both dev and prod:
@@ -44,3 +44,11 @@ In prod, Netlify redirects handle both, no code changes needed in your frontend:
 ```
 Where `agent-apigw` is the name returned from the `deploy` step. 
 
+### Rate limiting the poc server 
+
+The deploy scripts set `ReservedConcurrentExecutions = 10` on the Lambda function. This hard-caps how many instances run simultaneously. 
+Cost math at worst case (10 concurrent, 1-second requests, 512MB):                                                   
+- 10 × 86,400 seconds/day = 864,000 req/day theoretical max
+- Lambda pricing: ~$0.17/day = ~$5/month absolute ceiling
+
+The scripts also set a lambda alert for 3$ billing so we're notified of this.
